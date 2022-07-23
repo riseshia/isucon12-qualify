@@ -296,6 +296,21 @@ module Isuports
       def billing_report_by_competition(tenant_db, tenant_id, competition_id)
         comp = retrieve_competition(tenant_db, competition_id)
 
+        if comp.finished_at
+          row = admin_db.xquery('SELECT * FROM billing_report WHERE tenant_id = ? AND competition_id = ? LIMIT 1', tenant_id, competition_id).first
+          if row
+            return BillingReport.new(
+              competition_id: row.fetch(:competition_id),
+              competition_title: row.fetch(:competition_title),
+              player_count: row.fetch(:player_count),
+              visitor_count: row.fetch(:visitor_count),
+              billing_player_yen: row.fetch(:billing_player_yen),
+              billing_visitor_yen: row.fetch(:billing_visitor_yen),
+              billing_yen: row.fetch(:billing_yen)
+            )
+          end
+        end
+
         rows =
           if comp.finished_at
             admin_db.xquery('SELECT DISTINCT player_id FROM visit_history WHERE tenant_id = ? AND competition_id = ? AND created_at >= ? && created_at <= ?',
@@ -340,7 +355,7 @@ module Isuports
             end
           end
 
-          BillingReport.new(
+          billing_report = BillingReport.new(
             competition_id: comp.id,
             competition_title: comp.title,
             player_count:,
@@ -349,6 +364,19 @@ module Isuports
             billing_visitor_yen: 10 * visitor_count, # ランキングを閲覧だけした(スコアを登録していない)参加者は10円
             billing_yen: 100 * player_count + 10 * visitor_count
           )
+
+          # caching to admin db
+          admin_db.xquery('INSERT INTO billing_report (tenant_id, competition_id, competition_title, player_count, visitor_count, billing_player_yen, billing_visitor_yen, billing_yen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                          tenant_id,
+                          billing_report.competition_id,
+                          billing_report.competition_title,
+                          billing_report.player_count,
+                          billing_report.visitor_count,
+                          billing_report.billing_player_yen,
+                          billing_report.billing_visitor_yen,
+                          billing_report.billing_yen)
+
+          billing_report
         # end
       end
 
@@ -601,6 +629,10 @@ module Isuports
 
         now = Time.now.to_i
         tenant_db.execute('UPDATE competition SET finished_at = ?, updated_at = ? WHERE id = ?', [now, now, id])
+
+        # call for caching
+        billing_report_by_competition(tenant_db, v.tenant_id, id)
+
         json(
           status: true
         )
