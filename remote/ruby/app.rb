@@ -295,13 +295,23 @@ module Isuports
       def billing_report_by_competition(tenant_db, tenant_id, competition_id)
         comp = retrieve_competition(tenant_db, competition_id)
 
+        rows =
+          if comp.finished_at
+            admin_db.xquery('SELECT DISTINCT player_id FROM visit_history WHERE tenant_id = ? AND competition_id = ? AND created_at >= ? && created_at <= ?',
+                            tenant_id, comp.id, comp.created_at, comp.finished_at)
+          else
+            admin_db.xquery('SELECT DISTINCT player_id FROM visit_history WHERE tenant_id = ? AND competition_id = ? AND created_at >= ?',
+                            tenant_id, comp.id, comp.created_at)
+          end
+
         # ランキングにアクセスした参加者のIDを取得する
         billing_map = {}
-        admin_db.xquery('SELECT player_id, MIN(created_at) AS min_created_at FROM visit_history WHERE tenant_id = ? AND competition_id = ? GROUP BY player_id', tenant_id, comp.id).each do |vh|
+        # admin_db.xquery('SELECT player_id, MIN(created_at) AS min_created_at FROM visit_history WHERE tenant_id = ? AND competition_id = ? GROUP BY player_id', tenant_id, comp.id).each do |vh|
+        rows.each do |vh|
           # competition.finished_atよりもあとの場合は、終了後に訪問したとみなして大会開催内アクセス済みとみなさない
-          if comp.finished_at && comp.finished_at < vh.fetch(:min_created_at)
-            next
-          end
+          # if comp.finished_at && comp.finished_at < vh.fetch(:min_created_at)
+          #   next
+          # end
 
           billing_map[vh.fetch(:player_id)] = 'visitor'
         end
