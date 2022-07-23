@@ -628,7 +628,7 @@ module Isuports
         end
 
         # DELETEしたタイミングで参照が来ると空っぽのランキングになるのでロックする
-        flock_by_tenant_id(v.tenant_id) do
+        # flock_by_tenant_id(v.tenant_id) do
           player_score_rows = csv.map.with_index do |row, row_num|
             if row.size != 2
               raise "row must have two columns: #{row}"
@@ -656,9 +656,13 @@ module Isuports
           end
 
           tenant_db.execute('DELETE FROM player_score WHERE tenant_id = ? AND competition_id = ?', [v.tenant_id, competition_id])
-          player_score_rows.each do |ps|
-            tenant_db.execute('INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (:id, :tenant_id, :player_id, :competition_id, :score, :row_num, :created_at, :updated_at)', ps.to_h)
-          end
+          datas = player_score_rows.map { |psr| [psr.id, psr.tenant_id, psr.player_id, psr.competition_id, psr.score, psr.row_num, psr.created_at, psr.updated_at] }
+          template = datas.map { '(?, ?, ?, ?, ?, ?, ?, ?)' }.join(', ')
+          tenant_db.execute("INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES #{template}", *datas.flatten)
+
+          # player_score_rows.each do |ps|
+          #   tenant_db.execute('INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (:id, :tenant_id, :player_id, :competition_id, :score, :row_num, :created_at, :updated_at)', ps.to_h)
+          # end
 
           json(
             status: true,
@@ -666,7 +670,7 @@ module Isuports
               rows: player_score_rows.size,
             },
           )
-        end
+        # end
       end
     end
 
