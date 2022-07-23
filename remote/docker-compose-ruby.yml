@@ -2,12 +2,11 @@ services:
   webapp:
     build: ./ruby
     environment:
-      ISUCON_DB_HOST: 127.0.0.1
+      ISUCON_DB_HOST: isuports-3.t.isucon.dev
       ISUCON_DB_PORT: 3306
       ISUCON_DB_USER: isucon
       ISUCON_DB_PASSWORD: isucon
       ISUCON_DB_NAME: isuports
-      ISUCON_SQLITE_TRACE_FILE: /home/isucon/sqlite.log
     network_mode: host
     volumes:
       - /home/isucon/webapp/tenant_db:/home/isucon/webapp/tenant_db
