@@ -343,7 +343,7 @@ module Isuports
 
       def competitions_handler(v, tenant_db)
         competitions = []
-        tenant_db.execute('SELECT * FROM competition ORDER BY created_at DESC') do |row|
+        tenant_db.execute('SELECT * FROM competition WHERE tenant_id=? ORDER BY created_at DESC', [v.tenant_id]) do |row|
           comp = CompetitionRow.new(row)
           competitions.push({
             id: comp.id,
@@ -440,7 +440,7 @@ module Isuports
 
         billing_yen = 0
         connect_to_tenant_db(t.id) do |tenant_db|
-          tenant_db.execute('SELECT * FROM competition') do |row|
+          tenant_db.execute('SELECT * FROM competition WHERE tenant_id=?', [t.id]) do |row|
             comp = CompetitionRow.new(row)
             report = billing_report_by_competition(tenant_db, t.id, comp.id)
             billing_yen += report.billing_yen
@@ -679,7 +679,7 @@ module Isuports
 
       connect_to_tenant_db(v.tenant_id) do |tenant_db|
         reports = []
-        tenant_db.execute('SELECT * FROM competition ORDER BY created_at DESC') do |row|
+        tenant_db.execute('SELECT * FROM competition WHERE tenant_id=? ORDER BY created_at DESC', [v.tenant_id]) do |row|
           comp = CompetitionRow.new(row)
           reports.push(billing_report_by_competition(tenant_db, v.tenant_id, comp.id).to_h)
         end
@@ -721,7 +721,7 @@ module Isuports
         unless player
           raise HttpError.new(404, 'player not found')
         end
-        competitions = tenant_db.execute('SELECT * FROM competition ORDER BY created_at ASC').map { |row| CompetitionRow.new(row) }
+        competitions = tenant_db.execute('SELECT * FROM competition WHERE tenant_id = ? ORDER BY created_at ASC', [v.tenant_id]).map { |row| CompetitionRow.new(row) }
         # player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
         flock_by_tenant_id(v.tenant_id) do
           player_score_rows = competitions.filter_map do |c|
