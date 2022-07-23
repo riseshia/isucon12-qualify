@@ -136,6 +136,7 @@ module Isuports
 
       # システム全体で一意なIDを生成する
       def dispense_id
+        # (Time.now.to_f * 1000000).to_i.to_s(16)
         last_exception = nil
         100.times do |_i|
           begin
