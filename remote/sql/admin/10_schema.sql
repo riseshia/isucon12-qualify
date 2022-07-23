@@ -13,6 +13,7 @@ CREATE TABLE `tenant` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4;
+ALTER TABLE `tenant` ADD INDEX `idx_tenant_name` (`name`)
 
 CREATE TABLE `id_generator` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,

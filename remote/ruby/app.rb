@@ -213,7 +213,7 @@ module Isuports
         end
 
         # テナントの存在確認
-        tenant = admin_db.xquery('SELECT * FROM tenant WHERE name = ?', tenant_name).first
+        tenant = admin_db.xquery('SELECT * FROM tenant WHERE name = ? LIMIT 1', tenant_name).first
         unless tenant
           raise HttpError.new(401, 'tenant not found')
         end
