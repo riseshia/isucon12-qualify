@@ -307,7 +307,7 @@ module Isuports
         end
 
         # player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
-        flock_by_tenant_id(tenant_id) do
+        # flock_by_tenant_id(tenant_id) do
           # スコアを登録した参加者のIDを取得する
           tenant_db.execute('SELECT DISTINCT(player_id) FROM player_score WHERE tenant_id = ? AND competition_id = ?', [tenant_id, comp.id]) do |row|
             pid = row.fetch('player_id')
@@ -338,7 +338,7 @@ module Isuports
             billing_visitor_yen: 10 * visitor_count, # ランキングを閲覧だけした(スコアを登録していない)参加者は10円
             billing_yen: 100 * player_count + 10 * visitor_count
           )
-        end
+        # end
       end
 
       def competitions_handler(v, tenant_db)
