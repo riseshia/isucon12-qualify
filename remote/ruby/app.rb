@@ -728,18 +728,27 @@ module Isuports
         competitions = tenant_db.execute('SELECT * FROM competition WHERE tenant_id = ? ORDER BY created_at ASC', [v.tenant_id]).map { |row| CompetitionRow.new(row) }
         competitions_by_id = competitions.map { |c| [c.id, c] }.to_h
 
-        # 'SELECT * FROM (SELECT *, ROW_NUMBER() OVER(PARTITION BY competition_id ORDER BY row_num DESC) AS rn FROM player_score WHERE tenant_id = "100" AND player_id = "33f7fec65") WHERE rn = 1;'
         # player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
-        flock_by_tenant_id(v.tenant_id) do
+        # flock_by_tenant_id(v.tenant_id) do
+          ps_rows = tenant_db.execute('SELECT id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at FROM (SELECT *, ROW_NUMBER() OVER(PARTITION BY competition_id ORDER BY row_num DESC) as rn FROM player_score WHERE tenant_id = ? AND player_id = ?) WHERE rn = 1', [v.tenant_id, player.id])
+          ps_rows_by_cid = ps_rows.group_by { |row| row['competition_id'] }
+
           player_score_rows = competitions.filter_map do |c|
-            # 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
-            row = tenant_db.get_first_row('SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? AND player_id = ? ORDER BY row_num DESC LIMIT 1', [v.tenant_id, c.id, player.id])
-            if row
-              PlayerScoreRow.new(row)
+            ps_row = ps_rows_by_cid[c.id]
+            if ps_row
+              PlayerScoreRow.new(ps_row.first)
             else
-              # 行がない = スコアが記録されてない
               nil
             end
+
+            # # 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
+            # row = tenant_db.get_first_row('SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? AND player_id = ? ORDER BY row_num DESC LIMIT 1', [v.tenant_id, c.id, player.id])
+            # if row
+            #   PlayerScoreRow.new(row)
+            # else
+            #   # 行がない = スコアが記録されてない
+            #   nil
+            # end
           end
 
           scores = player_score_rows.map do |ps|
@@ -757,7 +766,7 @@ module Isuports
               scores:
             }
           )
-        end
+        # end
       end
     end
 
