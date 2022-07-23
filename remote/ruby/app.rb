@@ -775,7 +775,7 @@ module Isuports
         end
 
         now = Time.now.to_i
-        tenant = TenantRow.new(admin_db.xquery('SELECT * FROM tenant WHERE id = ?', v.tenant_id).first)
+        tenant = TenantRow.new(admin_db.xquery('SELECT * FROM tenant WHERE id = ? LIMIT 1', v.tenant_id).first)
         admin_db.xquery('INSERT INTO visit_history (player_id, tenant_id, competition_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', v.player_id, tenant.id, competition_id, now, now)
 
         rank_after_str = params[:rank_after]
