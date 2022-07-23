@@ -722,6 +722,9 @@ module Isuports
           raise HttpError.new(404, 'player not found')
         end
         competitions = tenant_db.execute('SELECT * FROM competition WHERE tenant_id = ? ORDER BY created_at ASC', [v.tenant_id]).map { |row| CompetitionRow.new(row) }
+        competitions_by_id = competitions.map { |c| [c.id, c] }.to_h
+
+        # 'SELECT * FROM (SELECT *, ROW_NUMBER() OVER(PARTITION BY competition_id ORDER BY row_num DESC) AS rn FROM player_score WHERE tenant_id = "100" AND player_id = "33f7fec65") WHERE rn = 1;'
         # player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
         flock_by_tenant_id(v.tenant_id) do
           player_score_rows = competitions.filter_map do |c|
@@ -736,7 +739,7 @@ module Isuports
           end
 
           scores = player_score_rows.map do |ps|
-            comp = retrieve_competition(tenant_db, ps.competition_id)
+            comp = competitions_by_id[ps.competition_id]
             {
               competition_title: comp.title,
               score: ps.score
