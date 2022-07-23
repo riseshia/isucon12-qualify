@@ -92,7 +92,7 @@ module Isuports
           database_timezone: :utc,
           cast_booleans: true,
           symbolize_keys: true,
-          reconnect: true,
+          reconnect: true
         )
       end
 
@@ -130,13 +130,14 @@ module Isuports
         unless status.success?
           raise "failed to exec sqlite3 #{path} < #{TENANT_DB_SCHEMA_FILE_PATH}, out=#{out}"
         end
+
         nil
       end
 
       # システム全体で一意なIDを生成する
       def dispense_id
         last_exception = nil
-        100.times do |i|
+        100.times do |_i|
           begin
             admin_db.xquery('REPLACE INTO id_generator (stub) VALUES (?)', 'a')
           rescue Mysql2::Error => e
@@ -170,6 +171,7 @@ module Isuports
         unless token.key?('role')
           raise HttpError.new(401, "invalid token: role is not found: #{token_str}")
         end
+
         role = token.fetch('role')
         unless [ROLE_ADMIN, ROLE_ORGANIZER, ROLE_PLAYER].include?(role)
           raise HttpError.new(401, "invalid token: invalid role: #{token_str}")
@@ -180,6 +182,7 @@ module Isuports
         if !aud.is_a?(Array) || aud.size != 1
           raise HttpError.new(401, "invalid token: aud field is few or too much: #{token_str}")
         end
+
         tenant = retrieve_tenant_row_from_header
         if tenant.name == 'admin' && role != ROLE_ADMIN
           raise HttpError.new(401, 'tenant not found')
@@ -188,11 +191,12 @@ module Isuports
         if tenant.name != aud[0]
           raise HttpError.new(401, "invalid token: tenant name is not match with #{request.host_with_port}: #{token_str}")
         end
+
         Viewer.new(
           role:,
           player_id: token.fetch('sub'),
           tenant_name: tenant.name,
-          tenant_id: tenant.id,
+          tenant_id: tenant.id
         )
       rescue JWT::DecodeError => e
         raise HttpError.new(401, "#{e.class}: #{e.message}")
@@ -213,6 +217,7 @@ module Isuports
         unless tenant
           raise HttpError.new(401, 'tenant not found')
         end
+
         TenantRow.new(tenant)
       end
 
@@ -238,6 +243,7 @@ module Isuports
         if player.is_disqualified
           raise HttpError.new(403, 'player is disqualified')
         end
+
         nil
       end
 
@@ -282,7 +288,7 @@ module Isuports
         :billing_player_yen,  # 請求金額 スコアを登録した参加者分
         :billing_visitor_yen, # 請求金額 ランキングを閲覧だけした(スコアを登録していない)参加者分
         :billing_yen, # 合計請求金額
-        keyword_init: true,
+        keyword_init: true
       )
 
       # 大会ごとの課金レポートを計算する
@@ -296,6 +302,7 @@ module Isuports
           if comp.finished_at && comp.finished_at < vh.fetch(:min_created_at)
             next
           end
+
           billing_map[vh.fetch(:player_id)] = 'visitor'
         end
 
@@ -328,8 +335,8 @@ module Isuports
             player_count:,
             visitor_count:,
             billing_player_yen: 100 * player_count, # スコアを登録した参加者は100円
-            billing_visitor_yen: 10 * visitor_count,  # ランキングを閲覧だけした(スコアを登録していない)参加者は10円
-            billing_yen: 100 * player_count + 10 * visitor_count,
+            billing_visitor_yen: 10 * visitor_count, # ランキングを閲覧だけした(スコアを登録していない)参加者は10円
+            billing_yen: 100 * player_count + 10 * visitor_count
           )
         end
       end
@@ -347,8 +354,8 @@ module Isuports
         json(
           status: true,
           data: {
-            competitions:,
-          },
+            competitions:
+          }
         )
       end
     end
@@ -377,6 +384,7 @@ module Isuports
         if e.error_number == 1062 # duplicate entry
           raise HttpError.new(400, 'duplicate tenant')
         end
+
         raise e
       end
       id = admin_db.last_id
@@ -391,9 +399,9 @@ module Isuports
             id: id.to_s,
             name: name,
             display_name: display_name,
-            billing: 0,
-          },
-        },
+            billing: 0
+          }
+        }
       )
     end
 
@@ -429,6 +437,7 @@ module Isuports
         if before_id && before_id <= t.id
           next
         end
+
         billing_yen = 0
         connect_to_tenant_db(t.id) do |tenant_db|
           tenant_db.execute('SELECT * FROM competition WHERE tenant_id=?', [t.id]) do |row|
@@ -450,8 +459,8 @@ module Isuports
       json(
         status: true,
         data: {
-          tenants: tenant_billings,
-        },
+          tenants: tenant_billings
+        }
       )
     end
 
@@ -475,8 +484,8 @@ module Isuports
         json(
           status: true,
           data: {
-            players:,
-          },
+            players:
+          }
         )
       end
     end
@@ -503,8 +512,8 @@ module Isuports
         json(
           status: true,
           data: {
-            players:,
-          },
+            players:
+          }
         )
       end
     end
@@ -530,8 +539,8 @@ module Isuports
         json(
           status: true,
           data: {
-            player: player.to_h.slice(:id, :display_name, :is_disqualified),
-          },
+            player: player.to_h.slice(:id, :display_name, :is_disqualified)
+          }
         )
       end
     end
@@ -558,9 +567,9 @@ module Isuports
             competition: {
               id:,
               title:,
-              is_finished: false,
-            },
-          },
+              is_finished: false
+            }
+          }
         )
       end
     end
@@ -582,7 +591,7 @@ module Isuports
         now = Time.now.to_i
         tenant_db.execute('UPDATE competition SET finished_at = ?, updated_at = ? WHERE id = ?', [now, now, id])
         json(
-          status: true,
+          status: true
         )
       end
     end
@@ -601,11 +610,12 @@ module Isuports
           # 存在しない大会
           raise HttpError.new(404, 'competition not found')
         end
+
         if comp.finished_at
           status 400
           return json(
             status: false,
-            message: 'competition is finished',
+            message: 'competition is finished'
           )
         end
 
@@ -623,11 +633,13 @@ module Isuports
             if row.size != 2
               raise "row must have two columns: #{row}"
             end
+
             player_id, score_str = *row.values_at('player_id', 'score')
             unless retrieve_player(tenant_db, player_id)
               # 存在しない参加者が含まれている
               raise HttpError.new(400, "player not found: #{player_id}")
             end
+
             score = Integer(score_str, 10)
             id = dispense_id
             now = Time.now.to_i
@@ -674,8 +686,8 @@ module Isuports
         json(
           status: true,
           data: {
-            reports:,
-          },
+            reports:
+          }
         )
       end
     end
@@ -727,7 +739,7 @@ module Isuports
             comp = retrieve_competition(tenant_db, ps.competition_id)
             {
               competition_title: comp.title,
-              score: ps.score,
+              score: ps.score
             }
           end
 
@@ -735,8 +747,8 @@ module Isuports
             status: true,
             data: {
               player: player.to_h.slice(:id, :display_name, :is_disqualified),
-              scores:,
-            },
+              scores:
+            }
           )
         end
       end
@@ -778,20 +790,22 @@ module Isuports
         flock_by_tenant_id(v.tenant_id) do
           ranks = []
           scored_player_set = Set.new
-          tenant_db.execute('SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? ORDER BY row_num DESC', [tenant.id, competition_id]) do |row|
+          tenant_db.execute('SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? ORDER BY row_num DESC',
+                            [tenant.id, competition_id]) do |row|
             ps = PlayerScoreRow.new(row)
             # player_scoreが同一player_id内ではrow_numの降順でソートされているので
             # 現れたのが2回目以降のplayer_idはより大きいrow_numでスコアが出ているとみなせる
             if scored_player_set.member?(ps.player_id)
               next
             end
+
             scored_player_set.add(ps.player_id)
             player = retrieve_player(tenant_db, ps.player_id)
             ranks.push(CompetitionRank.new(
               score: ps.score,
               player_id: player.id,
               player_display_name: player.display_name,
-              row_num: ps.row_num,
+              row_num: ps.row_num
             ))
           end
           ranks.sort! do |a, b|
@@ -806,7 +820,7 @@ module Isuports
               rank: rank_after + i + 1,
               score: rank.score,
               player_id: rank.player_id,
-              player_display_name: rank.player_display_name,
+              player_display_name: rank.player_display_name
             }
           end
 
@@ -816,10 +830,10 @@ module Isuports
               competition: {
                 id: competition.id,
                 title: competition.title,
-                is_finished: !competition.finished_at.nil?,
+                is_finished: !competition.finished_at.nil?
               },
-              ranks: paged_ranks,
-            },
+              ranks: paged_ranks
+            }
           )
         end
       end
@@ -853,19 +867,19 @@ module Isuports
               tenant: tenant.to_h.slice(:name, :display_name),
               me: nil,
               role: ROLE_NONE,
-              logged_in: false,
-            },
+              logged_in: false
+            }
           )
         end
-      if v.role == ROLE_ADMIN|| v.role == ROLE_ORGANIZER
+      if v.role == ROLE_ADMIN || v.role == ROLE_ORGANIZER
         json(
           status: true,
           data: {
             tenant: tenant.to_h.slice(:name, :display_name),
             me: nil,
             role: v.role,
-            logged_in: true,
-          },
+            logged_in: true
+          }
         )
       else
         connect_to_tenant_db(v.tenant_id) do |tenant_db|
@@ -877,8 +891,8 @@ module Isuports
                 tenant: tenant.to_h.slice(:name, :display_name),
                 me: player.to_h.slice(:id, :display_name, :is_disqualified),
                 role: v.role,
-                logged_in: true,
-              },
+                logged_in: true
+              }
             )
           else
             json(
@@ -887,8 +901,8 @@ module Isuports
                 tenant: tenant.to_h.slice(:name, :display_name),
                 me: nil,
                 role: ROLE_NONE,
-                logged_in: false,
-              },
+                logged_in: false
+              }
             )
           end
         end
@@ -904,11 +918,12 @@ module Isuports
       unless status.success?
         raise HttpError.new(500, "error command execution: #{out}")
       end
+
       json(
         status: true,
         data: {
-          lang: 'ruby',
-        },
+          lang: 'ruby'
+        }
       )
     end
   end
