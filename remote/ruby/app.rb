@@ -790,8 +790,7 @@ module Isuports
         flock_by_tenant_id(v.tenant_id) do
           ranks = []
           scored_player_set = Set.new
-          tenant_db.execute('SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? ORDER BY row_num DESC',
-                            [tenant.id, competition_id]) do |row|
+          tenant_db.execute('SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? ORDER BY row_num DESC', [tenant.id, competition_id]) do |row|
             ps = PlayerScoreRow.new(row)
             # player_scoreが同一player_id内ではrow_numの降順でソートされているので
             # 現れたのが2回目以降のplayer_idはより大きいrow_numでスコアが出ているとみなせる
