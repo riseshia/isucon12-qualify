@@ -789,70 +789,55 @@ module Isuports
             0
           end
 
-        ranks = []
-        scored_player_set = Set.new
-        tenant_db.execute('SELECT player_score.*, player.id as pi, player.display_name as pdn, player.is_disqualified as pid FROM player_score
-                           INNER JOIN player ON player_score.player_id = player.id
-                           WHERE player_score.tenant_id = ? AND competition_id = ? ORDER BY row_num DESC', [tenant.id, competition_id]) do |row|
-          ps = PlayerScoreRow.new(
-            id: row["id"],
-            tenant_id: row["tenant_id"],
-            player_id: row["player_id"],
-            competition_id: row["competition_id"],
-            row_num: row["row_num"],
-            score: row["score"],
-            created_at: row["created_at"],
-            updated_at: row["updated_at"]
-          )
+        # player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
+        flock_by_tenant_id(v.tenant_id) do
+          ranks = []
+          scored_player_set = Set.new
+          tenant_db.execute('SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? ORDER BY row_num DESC', [tenant.id, competition_id]) do |row|
+            ps = PlayerScoreRow.new(row)
+            # player_scoreが同一player_id内ではrow_numの降順でソートされているので
+            # 現れたのが2回目以降のplayer_idはより大きいrow_numでスコアが出ているとみなせる
+            if scored_player_set.member?(ps.player_id)
+              next
+            end
 
-          # player_scoreが同一player_id内ではrow_numの降順でソートされているので
-          # 現れたのが2回目以降のplayer_idはより大きいrow_numでスコアが出ているとみなせる
-          if scored_player_set.member?(ps.player_id)
-            next
+            scored_player_set.add(ps.player_id)
+            player = retrieve_player(tenant_db, ps.player_id)
+            ranks.push(CompetitionRank.new(
+              score: ps.score,
+              player_id: player.id,
+              player_display_name: player.display_name,
+              row_num: ps.row_num
+            ))
+          end
+          ranks.sort! do |a, b|
+            if a.score == b.score
+              a.row_num <=> b.row_num
+            else
+              b.score <=> a.score
+            end
+          end
+          paged_ranks = ranks.drop(rank_after).take(100).map.with_index do |rank, i|
+            {
+              rank: rank_after + i + 1,
+              score: rank.score,
+              player_id: rank.player_id,
+              player_display_name: rank.player_display_name
+            }
           end
 
-          scored_player_set.add(ps.player_id)
-          player = PlayerRow.new(
-            id: row["pi"],
-            display_name: row["pdn"],
-            is_disqualified: row["pid"] != 0
+          json(
+            status: true,
+            data: {
+              competition: {
+                id: competition.id,
+                title: competition.title,
+                is_finished: !competition.finished_at.nil?
+              },
+              ranks: paged_ranks
+            }
           )
-
-          ranks.push(CompetitionRank.new(
-            score: ps.score,
-            player_id: player.id,
-            player_display_name: player.display_name,
-            row_num: ps.row_num
-          ))
         end
-
-        ranks.sort! do |a, b|
-          if a.score == b.score
-            a.row_num <=> b.row_num
-          else
-            b.score <=> a.score
-          end
-        end
-        paged_ranks = ranks.drop(rank_after).take(100).map.with_index do |rank, i|
-          {
-            rank: rank_after + i + 1,
-            score: rank.score,
-            player_id: rank.player_id,
-            player_display_name: rank.player_display_name
-          }
-        end
-
-        json(
-          status: true,
-          data: {
-            competition: {
-              id: competition.id,
-              title: competition.title,
-              is_finished: !competition.finished_at.nil?
-            },
-            ranks: paged_ranks
-          }
-        )
       end
     end
 
