@@ -16,8 +16,8 @@ require_relative 'sqltrace'
 
 module Isuports
   class App < Sinatra::Base
-    enable :logging
-    set :show_exceptions, :after_handler
+    # enable :logging
+    # set :show_exceptions, :after_handler
     configure :development do
       require 'sinatra/reloader'
       register Sinatra::Reloader
@@ -136,22 +136,22 @@ module Isuports
 
       # システム全体で一意なIDを生成する
       def dispense_id
-        # (Time.now.to_f * 1000000).to_i.to_s(16)
-        last_exception = nil
-        100.times do |_i|
-          begin
-            admin_db.xquery('REPLACE INTO id_generator (stub) VALUES (?)', 'a')
-          rescue Mysql2::Error => e
-            if e.error_number == 1213 # deadlock
-              last_exception = e
-              next
-            else
-              raise e
-            end
-          end
-          return admin_db.last_id.to_s(16)
-        end
-        raise last_exception
+        (Time.now.to_f * 1000000).to_i.to_s(16)
+        # last_exception = nil
+        # 100.times do |_i|
+        #   begin
+        #     admin_db.xquery('REPLACE INTO id_generator (stub) VALUES (?)', 'a')
+        #   rescue Mysql2::Error => e
+        #     if e.error_number == 1213 # deadlock
+        #       last_exception = e
+        #       next
+        #     else
+        #       raise e
+        #     end
+        #   end
+        #   return admin_db.last_id.to_s(16)
+        # end
+        # raise last_exception
       end
 
       # リクエストヘッダをパースしてViewerを返す
